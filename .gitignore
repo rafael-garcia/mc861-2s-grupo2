@@ -18,3 +18,13 @@
 
 # Debug files
 *.dSYM/
+
+# Eclipse stuff
+.project
+.cproject
+
+# dropbox stuff
+.dropbox.attr
+
+# test images
+*.pgm
