@@ -20,10 +20,19 @@ int main(int argc, char *argv[]) {
 
 	iftImage *norm = normalize(img);
 
+	iftImage *gradientMag;
+	iftImage *gradientDir;
+
+	gradient(norm, &gradientMag, &gradientDir);
+
 	iftWriteImageP2(norm, "normalized.pgm");
+	iftWriteImageP2(gradientMag, "gradMag.pgm");
+	iftWriteImageP2(gradientDir, "gradDir.pgm");
 
 	iftDestroyImage(&img);
 	iftDestroyImage(&norm);
+	iftDestroyImage(&gradientMag);
+	iftDestroyImage(&gradientDir);
 
 	return 0;
 

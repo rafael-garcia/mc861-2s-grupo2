@@ -67,6 +67,7 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 	int q;
 	int i;
 
+	float g;
 	float gx;
 	float gy;
 	float factor;
@@ -75,12 +76,17 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 	float yPart;
 	float sumX = 0;
 	float sumY = 0;
+	float _const = 180 / PI;
 
+	*magnitude = iftCreateImage(img->xsize, img->ysize, img->zsize);
+	*direction = iftCreateImage(img->xsize, img->ysize, img->zsize);
 
 	for (p = 0; p < img->n; ++p) { //foreach pixel in the image
 		v = iftGetVoxelCoord(img, p); //gets the multidimensional coordinate using the unidimensional index
 
-		for (i = 0; i < adj->n; ++i) { //foreach neighbor voxel in the adjacency
+		gx = 0;
+		gy = 0;
+		for (i = 1; i < adj->n; ++i) { //foreach neighbor voxel in the adjacency
 
 			u = iftGetAdjacentVoxel(adj, v, i);
 
@@ -93,11 +99,22 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 				xPart = (v.x - u.x) / distance;
 				yPart = (v.y - u.y) / distance;
 
-				sumX += factor * xPart;
-				sumY += factor * yPart;
+				gx += factor * xPart;
+				gy += factor * yPart;
 
 			}
 		}
+
+		g = sqrt(pow(gx, 2.0) + pow(gy, 2.0));
+		(*magnitude)->val[p] = g;
+
+		if (gy / g >= 0) {
+			(*direction)->val[p] = _const * acos(gx / g);
+		}
+		else {
+			(*direction)->val[p] = 360 - _const * acos(gx / g);
+		}
+
 	}
 
 }
