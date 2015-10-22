@@ -28,3 +28,6 @@
 
 # test images
 *.pgm
+
+# ignore bin dir
+ift/bin/*

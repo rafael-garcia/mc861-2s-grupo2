@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	iftImage *img = iftReadImageByExt(argv[1]);
+	iftImage *label = iftReadImageByExt("/tmp/placas/LicensePlates/cand/0001.pgm");
 
 //	iftFeatures *feat = extractHog(img);
 
@@ -23,11 +24,14 @@ int main(int argc, char *argv[]) {
 	iftImage *gradientMag;
 	iftImage *gradientDir;
 
-	gradient(norm, &gradientMag, &gradientDir);
+	gradient(img, &gradientMag, &gradientDir);
+
+	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 
 	iftWriteImageP2(norm, "normalized.pgm");
 	iftWriteImageP2(gradientMag, "gradMag.pgm");
 	iftWriteImageP2(gradientDir, "gradDir.pgm");
+	iftWriteImageP2(box, "box.pgm");
 
 	iftDestroyImage(&img);
 	iftDestroyImage(&norm);
