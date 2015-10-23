@@ -15,12 +15,22 @@
 #include <stdio.h>
 
 /**
+ * HoG cell abstraction.
+ */
+typedef struct {
+	iftImage *img;
+	int cx;	// center x coordinate.
+	int cy; // center y coordinate.
+
+} Cell;
+
+/**
  * Extract image features using HoG image descriptor.
  *
  * @param[in] img 	gray scale image.
  * @return			features structure containing characteristic vector.
  */
-iftFeatures *extractHog(iftImage *img, iftImage *candImg, iftImage *label);
+iftFeatures *extractHog(iftImage *img);
 
 /**
  * Normalize image
@@ -48,32 +58,23 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction);
  */
 iftHistogram *create_histogram(iftImage *magnitude, iftImage *direction);
 
+/**
+ *
+ */
+Cell create_cell(iftImage *img, int xIni, int xEnd, int yIni, int yEnd);
+
 /**************************************************************
  **************************************************************/
 
-iftFeatures *extractHog(iftImage *img, iftImage *candImg, iftImage *label) {
-	iftImage *window;
-	int numOfCand = iftMaximumValue(candImg);
-	int numpixels_gt = 0;
-	int *overlap_count = iftAllocIntArray(numOfCand);;
+iftFeatures *extractHog(iftImage *img) {
+	int nOfCells = 4;
+	Cell cells[nOfCells * nOfCells];
+	int cellXSize = img->xsize / nOfCells;
+	int cellYSize = img->ysize / nOfCells;
 
-	for(int cand = 0; cand < numOfCand; ++cand) {
-
-		for (int p = 0; p < label->n; p++) {
-			if (label->val[p] != 0 && candImg->val[p] != 0) {
-				overlap_count[candImg->val[p]-1]++;
-				numpixels_gt++;
-			}
-		}
-
-		/* Consider candidate only if */
-		if (overlap_count[cand] > (numpixels_gt/2+1)) {
-			window = iftCreateBoundingBox2D(img, candImg, cand + 1);
-
-		}
-
+	for (int i = 0; i < nOfCells; ++i) {
+		;
 	}
-
 
 	return NULL;
 }
@@ -97,8 +98,6 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 	float distance;
 	float xPart;
 	float yPart;
-	float sumX = 0;
-	float sumY = 0;
 	float _const = 180 / PI;
 
 	*magnitude = iftCreateImage(img->xsize, img->ysize, img->zsize);
@@ -161,8 +160,6 @@ iftImage *normalize(iftImage *img) {
 	int q;
 	int i;
 	double sum;
-	double aux = 15;
-	char dummy;
 
 	for (p = 0; p < img->n; ++p) { //foreach pixel in the image
 		v = iftGetVoxelCoord(img, p); //gets the multidimensional coordinate using the unidimensional index
