@@ -18,7 +18,8 @@
  * HoG cell abstraction.
  */
 typedef struct {
-	iftImage *img;
+	iftImage *gradMag;
+	iftImage *gradDir;
 	int cx;	// center x coordinate.
 	int cy; // center y coordinate.
 
@@ -30,7 +31,7 @@ typedef struct {
  * @param[in] img 	gray scale image.
  * @return			features structure containing characteristic vector.
  */
-iftFeatures *extractHog(iftImage *img);
+iftFeatures *extractHog(iftImage *window);
 
 /**
  * Normalize image
@@ -61,19 +62,59 @@ iftHistogram *create_histogram(iftImage *magnitude, iftImage *direction);
 /**
  *
  */
-Cell create_cell(iftImage *img, int xIni, int xEnd, int yIni, int yEnd);
+Cell create_cell(iftImage *window, int xIni, int xEnd, int yIni, int yEnd);
 
 /**************************************************************
  **************************************************************/
 
-iftFeatures *extractHog(iftImage *img) {
+iftFeatures *extractHog(iftImage *window) {
 	int nOfCells = 4;
-	Cell cells[nOfCells * nOfCells];
-	int cellXSize = img->xsize / nOfCells;
-	int cellYSize = img->ysize / nOfCells;
+	Cell cells[nOfCells][nOfCells];
+	int cellXSize = window->xsize / nOfCells;
+	int cellYSize = window->ysize / nOfCells;
+	iftImage *cellImg = iftCreateImage(cellXSize, cellYSize, window->zsize);
 
+	int minY;
+	int maxY;
+	int minX;
+	int maxX;
+
+	int x;
+	int y;
+	int origp;
+	int p;
+
+	/* Create cells */
 	for (int i = 0; i < nOfCells; ++i) {
-		;
+		minY = i * cellYSize;
+		maxY = minY + cellYSize - 1;
+
+		for (int j = 0; j < nOfCells; ++j) {
+			minX = j * cellXSize;
+			maxX = minX + cellXSize - 1;
+
+			/* Copy pixel values from original window to a image representing
+			 * cell. */
+			for (x = minY; x < (maxY + 1); x++) {
+				for (y = minX; y < (maxX + 1); y++) {
+					origp = x * window->xsize + y;
+					p = (x - minY) * (maxX - minX + 1) + (y - minX);
+					cellImg->val[p] = window->val[origp];
+					// Copy Cb and Cr bands for color images
+					if (window->Cb != NULL) {
+						cellImg->Cb[p] = window->Cb[origp];
+						cellImg->Cr[p] = window->Cr[origp];
+					}
+				}
+			}
+
+			gradient(cellImg, &(cells[i][j].gradMag), &(cells[i][j].gradDir));
+
+			cells[i][j].cx = minX + cellXSize / 2;
+			cells[i][j].cy = minY + cellYSize / 2;
+
+		};
+
 	}
 
 	return NULL;
