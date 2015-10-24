@@ -15,9 +15,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	iftImage *img = iftReadImageByExt(argv[1]);
-	iftImage *label = iftReadImageByExt("/tmp/placas/LicensePlates/cand/0001.pgm");
+	iftImage *label = iftReadImageByExt("/home/hoshiro/Pictures/LicensePlates/cand/0001.pgm");
 
-//	iftFeatures *feat = extractHog(img);
+
 
 	iftImage *norm = normalize(img);
 
@@ -28,6 +28,8 @@ int main(int argc, char *argv[]) {
 
 	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 
+	iftFeatures *feat = extractHog(box);
+
 	iftWriteImageP2(norm, "normalized.pgm");
 	iftWriteImageP2(gradientMag, "gradMag.pgm");
 	iftWriteImageP2(gradientDir, "gradDir.pgm");
@@ -37,6 +39,7 @@ int main(int argc, char *argv[]) {
 	iftDestroyImage(&norm);
 	iftDestroyImage(&gradientMag);
 	iftDestroyImage(&gradientDir);
+	iftDestroyImage(&box);
 
 	return 0;
 
