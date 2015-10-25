@@ -14,6 +14,8 @@
 #include <math.h>
 #include <stdio.h>
 
+#define EPSLON 1e-6
+
 /**
  * HoG cell abstraction.
  */
@@ -22,6 +24,25 @@ typedef struct {
 	int cx;	// center x coordinate.
 	int cy; // center y coordinate.
 } Cell;
+
+/**
+ * Block abstraction
+ */
+typedef struct {
+	float *val;
+	int sz;
+} Block;
+
+Block createBlock(int sz) {
+	Block block;
+	block.sz = sz;
+	block.val = (float *) malloc(sz * sizeof(float));
+	return block;
+}
+
+void destroyBlock(Block *bl) {
+	free(bl->val);
+}
 
 /**
  * Extract image features using HoG image descriptor.
@@ -58,20 +79,25 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction);
 void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
 		iftImage *gradDir);
 
-/**
- *
- */
-Cell create_cell(iftImage *window, int xIni, int xEnd, int yIni, int yEnd);
-
 /**************************************************************
  **************************************************************/
+
+void normalizeBlockVector(Block *block, int normFactor) {
+
+	for (int i = 0; i < block->sz; ++i)
+		block->val[i] = block->val[i] / (sqrt(normFactor) + EPSLON);
+}
 
 iftFeatures *extractHog(iftImage *window) {
 	int nOfCells = 4;
 	Cell **cells = (Cell**) malloc(nOfCells * sizeof(Cell*));
 	int cellXSize = window->xsize / nOfCells;
 	int cellYSize = window->ysize / nOfCells;
-//	iftImage *cellImg = iftCreateImage(cellXSize, cellYSize, window->zsize);
+
+	int nOfBlocks = 2;
+	int blockSz = nOfCells / nOfBlocks;
+	Block **blocks = (Block **) malloc(nOfBlocks * sizeof(Block*));
+
 	iftImage *gradMag = iftCreateImage(window->xsize, window->ysize,
 			window->zsize);
 	iftImage *gradDir = iftCreateImage(window->xsize, window->ysize,
@@ -81,11 +107,6 @@ iftFeatures *extractHog(iftImage *window) {
 	int maxY;
 	int minX;
 	int maxX;
-
-	int x;
-	int y;
-	int origp;
-	int p;
 
 	/* Create cells */
 	for (int i = 0; i < nOfCells; ++i) {
@@ -97,38 +118,66 @@ iftFeatures *extractHog(iftImage *window) {
 		for (int j = 0; j < nOfCells; ++j) {
 			minX = j * cellXSize;
 			maxX = minX + cellXSize - 1;
-
-//			/* Copy pixel values from original window to a image representing
-//			 * cell. */
-//			for (x = minY; x < (maxY + 1); x++) {
-//				for (y = minX; y < (maxX + 1); y++) {
-//					origp = x * window->xsize + y;
-//					p = (x - minY) * (maxX - minX + 1) + (y - minX);
-//					cellImg->val[p] = window->val[origp];
-//					// Copy Cb and Cr bands for color images
-//					if (window->Cb != NULL) {
-//						cellImg->Cb[p] = window->Cb[origp];
-//						cellImg->Cr[p] = window->Cr[origp];
-//					}
-//				}
-//			}
-//
-//			gradient(cellImg, &(cells[i][j].gradMag), &(cells[i][j].gradDir));
-
 			cells[i][j].cx = minX + cellXSize / 2;
 			cells[i][j].cy = minY + cellYSize / 2;
+			cells[i][j].histogram = iftCreateHistogram(9);
+			printf("%d : %d\n", cells[i][j].cx, cells[i][j].cy);
 		};
-
 	}
 
+	/**Calculates window gradient magnitude and direction**/
 	gradient(window, &gradMag, &gradDir);
+	/**Calculates histograms for each cell**/
 	calc_histograms(cells, nOfCells, nOfCells, gradMag, gradDir);
 
-	//TODO dealloc cells
+	int valCounter;
+	int bi = 0;
+	int bj = 0;
+	float normFactor;
+	float vj;
+	/** Calculates characteristic vector for each block **/
+	for (int i = 0; i < nOfCells; i += blockSz) {
+
+		blocks[bi] = (Block *) malloc(nOfBlocks * sizeof(Block));
+
+		for (int j = 0; j < nOfCells; j += blockSz) {
+			blocks[bi][bj] = createBlock(blockSz * blockSz * 9);
+
+			valCounter = 0;
+			normFactor = 0;
+			/**Get each cell of a block**/
+			for (int ii = i; ii < blockSz; ++ii) {
+				for (int jj = j; jj < blockSz; ++jj) {
+					/** Get each bin value of a cell.**/
+					for (int b = 0; b < 9; ++b) {
+						vj = cells[ii][jj].histogram->val[b];
+						blocks[bi][bj].val[valCounter++] = vj;
+						normFactor += (vj * vj);
+					}
+				}
+			}
+			normalizeBlockVector(&blocks[bi][bj], normFactor);
+			bj++;
+		}
+		bi++;
+	}
+
+	iftFeatures *hogFeatures = iftCreateFeatures(nOfCells * nOfCells * 9);
+
+	int featIndex = 0;
+	for (int i = 0; i < nOfBlocks; ++i) {
+		for (int j = 0; j < nOfBlocks; ++j) {
+			for (int c = 0; c < blocks[i][j].sz; ++c) {
+				hogFeatures->val[featIndex++] = blocks[i][j].val[c];
+			}
+		}
+	}
+
+	//TODO dealloc cells and blocks
 	iftDestroyImage(&gradMag);
 	iftDestroyImage(&gradDir);
 
-	return NULL;
+	return hogFeatures;
 }
 
 void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
@@ -215,7 +264,7 @@ void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
 		for (int j = 0; j < col; ++j) {
 			dist[aux].val = sqrt(
 					pow(cells[i][j].cx - px, 2.0)
-							+ pow(cells[i][j].cx - px, 2.0));
+							+ pow(cells[i][j].cy - py, 2.0));
 			dist[aux].i = i;
 			dist[aux++].j = j;
 		}
@@ -236,152 +285,184 @@ void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
 
 void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
 		iftImage *gradDir) {
-	int nearestI[4];
-	int nearestJ[4];
-	int w[8];
-	int x[14];
-	int y[14];
-	int z[14];
-	int q;
+	int nearestI[4], nearestJ[4];
+	int w[14];
+	int x[14], y[14], z[14];
 	int ww;
+	int center[] = { 22, 67, 112, 157, 202, 247, 292, 337 };
+	int bin1, bin2;
+	int diff1, diff2;
 
-	int p;
+	int p, q;
 	iftVoxel v;
-	int xp;
-	int yp;
+	int xp, yp;
 
-	for (int i = 0; i < row; ++i) {
-		for (int j = 0; j < col; ++j) {
+	for (p = 0; p < gradMag->n; ++p) {
+		v = iftGetVoxelCoord(gradMag, p);
+		nearestCells(cells, row, col, v.x, v.y, nearestI, nearestJ);
 
-			for (p = 0; p < gradMag->n; ++p) {
-				v = iftGetVoxelCoord(gradMag, p);
-				nearestCells(cells, row, col, v.x, v.y, nearestI, nearestJ);
+		/** Calculate weight parameters **/
+		xp = v.x;
+		yp = v.y;
 
-				/** Calculate weight parameters **/
+		y[0] = xp;
 
-				xp = v.x;
-				yp = v.y;
+		y[1] = yp;
 
-				y[0] = xp;
+		x[7] = cells[nearestI[0]][nearestJ[0]].cx;
+		y[7] = cells[nearestI[0]][nearestJ[0]].cy;
+		v.x = x[7];
+		v.y = y[7];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[7] = gradDir->val[q];
 
-				y[1] = yp;
+		x[0] = x[7];
+		v.x = x[0];
+		v.y = y[0];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[0] = gradDir->val[q];
 
-				x[6] = cells[nearestI[0]][nearestJ[0]].cx;
-				y[6] = cells[nearestI[0]][nearestJ[0]].cy;
-				v.x = x[6];
-				v.y = y[6];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[6] = gradDir->val[q];
+		x[3] = x[7];
+		y[3] = y[7];
+		z[3] = z[7];
 
-				x[0] = x[6];
-				v.x = x[0];
-				v.y = y[0];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[0] = gradDir->val[q];
+		x[11] = x[7];
+		y[11] = y[7];
+		z[11] = z[7];
 
-				x[2] = x[6];
-				y[2] = y[6];
-				z[2] = z[6];
+		x[8] = cells[nearestI[1]][nearestJ[1]].cx;
+		y[8] = cells[nearestI[1]][nearestJ[1]].cy;
+		v.x = x[8];
+		v.y = y[8];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[8] = gradDir->val[q];
 
-				x[10] = x[6];
-				y[10] = y[6];
-				z[10] = z[6];
+		x[5] = x[8];
+		y[5] = y[8];
+		z[5] = z[8];
 
-				x[7] = cells[nearestI[1]][nearestJ[1]].cx;
-				y[7] = cells[nearestI[1]][nearestJ[1]].cy;
-				v.x = x[7];
-				v.y = y[7];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[7] = gradDir->val[q];
+		x[12] = x[8];
+		y[12] = y[8];
+		z[12] = z[8];
 
-				x[3] = x[7];
-				y[3] = y[7];
-				z[3] = z[7];
+		x[9] = cells[nearestI[2]][nearestJ[2]].cx;
+		y[9] = cells[nearestI[2]][nearestJ[2]].cy;
+		v.x = x[9];
+		v.y = y[9];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[9] = gradDir->val[q];
 
-				x[11] = x[7];
-				y[11] = y[7];
-				z[11] = z[7];
+		x[1] = x[9];
+		v.x = x[1];
+		v.y = y[1];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[1] = gradDir->val[q];
 
-				x[8] = cells[nearestI[2]][nearestJ[2]].cx;
-				y[8] = cells[nearestI[2]][nearestJ[2]].cy;
-				v.x = x[8];
-				v.y = y[8];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[8] = gradDir->val[q];
+		x[4] = x[9];
+		y[4] = y[9];
+		z[4] = z[9];
 
-				x[1] = x[8];
-				v.x = x[1];
-				v.y = y[1];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[1] = gradDir->val[q];
+		x[13] = x[9];
+		y[13] = y[9];
+		z[13] = z[9];
 
-				x[5] = x[8];
-				y[5] = y[8];
-				z[5] = z[8];
+		x[6] = cells[nearestI[3]][nearestJ[3]].cx;
+		y[6] = cells[nearestI[3]][nearestJ[3]].cy;
+		v.x = x[6];
+		v.y = y[6];
+		q = iftGetVoxelIndex(gradDir, v);
+		z[6] = gradDir->val[q];
 
-				x[12] = x[8];
-				y[12] = y[8];
-				z[12] = z[8];
+		x[2] = x[6];
+		y[2] = y[6];
+		z[2] = z[6];
 
-				x[9] = cells[nearestI[3]][nearestJ[3]].cx;
-				y[9] = cells[nearestI[3]][nearestJ[3]].cy;
-				v.x = x[9];
-				v.y = y[9];
-				q = iftGetVoxelIndex(gradDir, v);
-				z[9] = gradDir->val[q];
+		x[10] = x[6];
+		y[10] = y[6];
+		z[10] = z[6];
 
-				x[4] = x[9];
-				y[4] = y[9];
-				z[4] = z[9];
+		ww = gradMag->val[p];
 
-				x[13] = x[9];
-				y[13] = y[9];
-				z[13] = z[9];
+		/** Now calculate weights **/
+		w[0] = ww * (x[1] - xp) / (x[1] - x[0]);
+		w[1] = ww * (xp - x[0]) / (x[1] - x[0]);
+		w[2] = w[0] * (y[0] - y[3]) / (y[2] - y[3]);
+		w[3] = w[0] * (y[2] - y[0]) / (y[2] - y[3]);
+		w[4] = w[1] * (y[1] - y[5]) / (y[4] - y[5]);
+		w[5] = w[1] * (y[4] - y[1]) / (y[4] - y[5]);
+		w[6] = w[2]; //* 45 / 45;
+		w[10] = w[2] * 45 / (y[4] - z[6]);
+		w[7] = w[3];
+		w[11] = w[3];
+		w[9] = w[4];
+		w[13] = w[4];
+		w[8] = w[5];
+		w[12] = w[5];
 
-				ww = gradMag->val[p];
+		/** Find corresponding bins **/
+		// find first bin
+		bin1 = gradDir->val[p] / 45;
 
-				/** Now calculate weights **/
-			w[0] = ww   * (x[1] - xp) / (x[1] - x[0]);
-			w[1] = ww   * (xp - x[0]) / (x[1] - x[0]);
-			w[2] = w[1] * (xp - x[0]) / (x[1] - x[0]);
+		// find second bin
+		if (bin1 + 1 < 8)
+			diff1 = center[bin1 + 1] - gradDir->val[p];
+		else
+			diff1 = 361;
 
-		}
+		if (bin1 - 1 >= 0)
+			diff2 = center[bin1 - 1] - gradDir->val[p];
+		else
+			diff2 = 361;
+
+		bin1++;
+		if (diff1 < diff2)
+			bin2 = bin1 + 1;
+		else
+			bin2 = bin1 - 1;
+
+		cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
+		cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];
+		cells[nearestI[2]][nearestJ[2]].histogram->val[bin1] += w[9];
+		cells[nearestI[3]][nearestJ[3]].histogram->val[bin1] += w[8];
+
+		cells[nearestI[0]][nearestJ[0]].histogram->val[bin2] += w[10];
+		cells[nearestI[1]][nearestJ[1]].histogram->val[bin2] += w[11];
+		cells[nearestI[2]][nearestJ[2]].histogram->val[bin2] += w[13];
+		cells[nearestI[3]][nearestJ[3]].histogram->val[bin2] += w[12];
 
 	}
-
-}
 
 }
 
 iftImage *normalize(iftImage *img) {
-iftImage* normImg = iftCreateImage(img->xsize, img->ysize, img->zsize);
-iftVoxel v;
-iftVoxel u;
-iftAdjRel* adj = iftCircular(5.0);
+	iftImage* normImg = iftCreateImage(img->xsize, img->ysize, img->zsize);
+	iftVoxel v;
+	iftVoxel u;
+	iftAdjRel* adj = iftCircular(5.0);
 
-int p;
-int q;
-int i;
-double sum;
+	int p;
+	int q;
+	int i;
+	double sum;
 
-for (p = 0; p < img->n; ++p) { //foreach pixel in the image
-	v = iftGetVoxelCoord(img, p); //gets the multidimensional coordinate using the unidimensional index
+	for (p = 0; p < img->n; ++p) { //foreach pixel in the image
+		v = iftGetVoxelCoord(img, p); //gets the multidimensional coordinate using the unidimensional index
 
-	sum = 0;
-	for (i = 0; i < adj->n; ++i) { //foreach neighbor voxel in the adjacency
+		sum = 0;
+		for (i = 0; i < adj->n; ++i) { //foreach neighbor voxel in the adjacency
 
-		u = iftGetAdjacentVoxel(adj, v, i);
+			u = iftGetAdjacentVoxel(adj, v, i);
 
-		if (iftValidVoxel(img, u)) { //check if it is a valid voxel (is it inside the image?)
-			q = iftGetVoxelIndex(img, u);
-			sum += (img->val[q] * img->val[q]);
+			if (iftValidVoxel(img, u)) { //check if it is a valid voxel (is it inside the image?)
+				q = iftGetVoxelIndex(img, u);
+				sum += (img->val[q] * img->val[q]);
+			}
 		}
+
+		normImg->val[p] = ((img->val[p] / sqrt(sum))) * 255;
 	}
 
-	normImg->val[p] = ((img->val[p] / sqrt(sum))) * 255;
-}
-
-return normImg;
+	return normImg;
 }
 
 #endif /* HOG_H_ */
