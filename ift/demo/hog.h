@@ -76,8 +76,8 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction);
  * @param[out]	direction	gradient direction.
  * @return					array of int representing histograms
  */
-void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
-		iftImage *gradDir);
+void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
+		iftImage *gradMag, iftImage *gradDir);
 
 /**************************************************************
  **************************************************************/
@@ -121,14 +121,13 @@ iftFeatures *extractHog(iftImage *window) {
 			cells[i][j].cx = minX + cellXSize / 2;
 			cells[i][j].cy = minY + cellYSize / 2;
 			cells[i][j].histogram = iftCreateHistogram(9);
-			printf("%d : %d\n", cells[i][j].cx, cells[i][j].cy);
 		};
 	}
 
 	/**Calculates window gradient magnitude and direction**/
 	gradient(window, &gradMag, &gradDir);
 	/**Calculates histograms for each cell**/
-	calc_histograms(cells, nOfCells, nOfCells, gradMag, gradDir);
+	calc_histograms(cells, nOfCells, nOfCells, cellXSize, cellYSize, gradMag, gradDir);
 
 	int valCounter;
 	int bi = 0;
@@ -151,6 +150,7 @@ iftFeatures *extractHog(iftImage *window) {
 					/** Get each bin value of a cell.**/
 					for (int b = 0; b < 9; ++b) {
 						vj = cells[ii][jj].histogram->val[b];
+//						printf("%.2f\n", vj);
 						blocks[bi][bj].val[valCounter++] = vj;
 						normFactor += (vj * vj);
 					}
@@ -169,6 +169,7 @@ iftFeatures *extractHog(iftImage *window) {
 		for (int j = 0; j < nOfBlocks; ++j) {
 			for (int c = 0; c < blocks[i][j].sz; ++c) {
 				hogFeatures->val[featIndex++] = blocks[i][j].val[c];
+				printf("%f\n", hogFeatures->val[featIndex++]);
 			}
 		}
 	}
@@ -283,11 +284,10 @@ void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
 
 }
 
-void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
-		iftImage *gradDir) {
+void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
+		iftImage *gradMag, iftImage *gradDir) {
 	int nearestI[4], nearestJ[4];
 	int w[14];
-	int x[14], y[14], z[14];
 	int ww;
 	int center[] = { 22, 67, 112, 157, 202, 247, 292, 337 };
 	int bin1, bin2;
@@ -296,108 +296,13 @@ void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
 	int p, q;
 	iftVoxel v;
 	int xp, yp;
+	int x1, x2;
+	int y1, y2;
+	int auxX, auxY;
 
 	for (p = 0; p < gradMag->n; ++p) {
 		v = iftGetVoxelCoord(gradMag, p);
 		nearestCells(cells, row, col, v.x, v.y, nearestI, nearestJ);
-
-		/** Calculate weight parameters **/
-		xp = v.x;
-		yp = v.y;
-
-		y[0] = xp;
-
-		y[1] = yp;
-
-		x[7] = cells[nearestI[0]][nearestJ[0]].cx;
-		y[7] = cells[nearestI[0]][nearestJ[0]].cy;
-		v.x = x[7];
-		v.y = y[7];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[7] = gradDir->val[q];
-
-		x[0] = x[7];
-		v.x = x[0];
-		v.y = y[0];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[0] = gradDir->val[q];
-
-		x[3] = x[7];
-		y[3] = y[7];
-		z[3] = z[7];
-
-		x[11] = x[7];
-		y[11] = y[7];
-		z[11] = z[7];
-
-		x[8] = cells[nearestI[1]][nearestJ[1]].cx;
-		y[8] = cells[nearestI[1]][nearestJ[1]].cy;
-		v.x = x[8];
-		v.y = y[8];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[8] = gradDir->val[q];
-
-		x[5] = x[8];
-		y[5] = y[8];
-		z[5] = z[8];
-
-		x[12] = x[8];
-		y[12] = y[8];
-		z[12] = z[8];
-
-		x[9] = cells[nearestI[2]][nearestJ[2]].cx;
-		y[9] = cells[nearestI[2]][nearestJ[2]].cy;
-		v.x = x[9];
-		v.y = y[9];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[9] = gradDir->val[q];
-
-		x[1] = x[9];
-		v.x = x[1];
-		v.y = y[1];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[1] = gradDir->val[q];
-
-		x[4] = x[9];
-		y[4] = y[9];
-		z[4] = z[9];
-
-		x[13] = x[9];
-		y[13] = y[9];
-		z[13] = z[9];
-
-		x[6] = cells[nearestI[3]][nearestJ[3]].cx;
-		y[6] = cells[nearestI[3]][nearestJ[3]].cy;
-		v.x = x[6];
-		v.y = y[6];
-		q = iftGetVoxelIndex(gradDir, v);
-		z[6] = gradDir->val[q];
-
-		x[2] = x[6];
-		y[2] = y[6];
-		z[2] = z[6];
-
-		x[10] = x[6];
-		y[10] = y[6];
-		z[10] = z[6];
-
-		ww = gradMag->val[p];
-
-		/** Now calculate weights **/
-		w[0] = ww * (x[1] - xp) / (x[1] - x[0]);
-		w[1] = ww * (xp - x[0]) / (x[1] - x[0]);
-		w[2] = w[0] * (y[0] - y[3]) / (y[2] - y[3]);
-		w[3] = w[0] * (y[2] - y[0]) / (y[2] - y[3]);
-		w[4] = w[1] * (y[1] - y[5]) / (y[4] - y[5]);
-		w[5] = w[1] * (y[4] - y[1]) / (y[4] - y[5]);
-		w[6] = w[2]; //* 45 / 45;
-		w[10] = w[2] * 45 / (y[4] - z[6]);
-		w[7] = w[3];
-		w[11] = w[3];
-		w[9] = w[4];
-		w[13] = w[4];
-		w[8] = w[5];
-		w[12] = w[5];
 
 		/** Find corresponding bins **/
 		// find first bin
@@ -420,15 +325,65 @@ void calc_histograms(Cell **cells, int row, int col, iftImage *gradMag,
 		else
 			bin2 = bin1 - 1;
 
-		cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
-		cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];
-		cells[nearestI[2]][nearestJ[2]].histogram->val[bin1] += w[9];
-		cells[nearestI[3]][nearestJ[3]].histogram->val[bin1] += w[8];
+		/** Calculate weight parameters **/
+		xp = v.x;
+		yp = v.y;
 
-		cells[nearestI[0]][nearestJ[0]].histogram->val[bin2] += w[10];
-		cells[nearestI[1]][nearestJ[1]].histogram->val[bin2] += w[11];
-		cells[nearestI[2]][nearestJ[2]].histogram->val[bin2] += w[13];
-		cells[nearestI[3]][nearestJ[3]].histogram->val[bin2] += w[12];
+		x1 = cells[nearestI[0]][nearestJ[0]].cx;
+		y1 = cells[nearestI[0]][nearestJ[0]].cy;
+
+		x2 = cells[nearestI[1]][nearestJ[1]].cx;
+		y2 = cells[nearestI[1]][nearestJ[1]].cy;
+
+		auxX = cells[nearestI[2]][nearestJ[2]].cx;
+		auxY = cells[nearestI[2]][nearestJ[2]].cy;
+
+		if (x2 == x1)
+			x2 = auxX;
+		if (y2 == y1)
+			y2 = auxY;
+
+		auxX = cells[nearestI[3]][nearestJ[3]].cx;
+		auxY = cells[nearestI[3]][nearestJ[3]].cy;
+
+		if (x2 == x1)
+			x2 = auxX;
+		if (y2 == y1)
+			y2 = auxY;
+
+		ww = gradMag->val[p];
+
+		if (ww != 0) {
+
+			/** Now calculate weights **/
+			w[0] = ww * abs(x1 - xp) / cellSzX;
+			w[1] = ww * abs(xp - x1) / cellSzX;
+			w[2] = w[0] * (cellSzY / 2) / cellSzY;
+			w[3] = w[0] * (cellSzY / 2) / cellSzY;
+			w[4] = w[1] * (cellSzY / 2) / cellSzY;
+			w[5] = w[1] * (cellSzY / 2) / cellSzY;
+			w[6] = w[2]; //* 45 / 45;
+			w[10] = w[2] * 45 / (y1 - center[bin1 - 1]);
+			w[7] = w[3];
+			w[11] = w[3];
+			w[9] = w[4];
+			w[13] = w[4];
+			w[8] = w[5];
+			w[12] = w[5];
+
+			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
+			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];
+			cells[nearestI[2]][nearestJ[2]].histogram->val[bin1] += w[9];
+			cells[nearestI[3]][nearestJ[3]].histogram->val[bin1] += w[8];
+
+			cells[nearestI[0]][nearestJ[0]].histogram->val[bin2] += w[10];
+			cells[nearestI[1]][nearestJ[1]].histogram->val[bin2] += w[11];
+			cells[nearestI[2]][nearestJ[2]].histogram->val[bin2] += w[13];
+			cells[nearestI[3]][nearestJ[3]].histogram->val[bin2] += w[12];
+
+		} else {
+			cells[nearestI[0]][nearestJ[0]].histogram->val[0] += 1;
+		}
 
 	}
 
