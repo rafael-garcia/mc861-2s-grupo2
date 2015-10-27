@@ -98,20 +98,15 @@ iftFeatures *extractHog(iftImage *window) {
 			window->zsize);
 
 	int minY;
-	int maxY;
 	int minX;
-	int maxX;
-
 	/* Create cells */
 	for (int i = 0; i < nOfCells; ++i) {
 		minY = i * cellYSize;
-		maxY = minY + cellYSize - 1;
 
 		cells[i] = (Cell *) malloc(nOfCells * sizeof(Cell));
 
 		for (int j = 0; j < nOfCells; ++j) {
 			minX = j * cellXSize;
-			maxX = minX + cellXSize - 1;
 			cells[i][j].cx = minX + cellXSize / 2;
 			cells[i][j].cy = minY + cellYSize / 2;
 			cells[i][j].histogram = iftCreateHistogram(9);
@@ -126,8 +121,6 @@ iftFeatures *extractHog(iftImage *window) {
 			gradDir);
 
 	int valCounter;
-	int bi = 0;
-	int bj = 0;
 	float normFactor;
 	float vj;
 
@@ -299,9 +292,9 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 	int bin1, bin2;
 	int diff1, diff2;
 
-	int p, q;
+	int p;
 	iftVoxel v;
-	int xp, yp;
+	int xp;
 	int x1, x2;
 	int y1, y2;
 	int auxX, auxY;
@@ -333,7 +326,6 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 
 		/** Calculate weight parameters **/
 		xp = v.x;
-		yp = v.y;
 
 		x1 = cells[nearestI[0]][nearestJ[0]].cx;
 		y1 = cells[nearestI[0]][nearestJ[0]].cy;
@@ -376,11 +368,6 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 			w[13] = w[4];
 			w[8] = w[5];
 			w[12] = w[5];
-
-//			for (int i = 0; i < 14; ++i)
-//				if (w[i] > ww) {
-//					printf("%.2f : %d -> %.2f : %.2f : %.2f : %.2f\n", w[i], i, w[2], fmax(y1, y2), gradDir->val[p], w[2]);
-//				}
 
 			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
 			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];

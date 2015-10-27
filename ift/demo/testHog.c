@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
 
 	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 
-	iftFeatures *feat = extractHog(box);
+	extractHog(box);
 
 	iftWriteImageP2(box, "box.pgm");
 
