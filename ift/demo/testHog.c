@@ -22,12 +22,13 @@ int main(int argc, char *argv[]) {
 
 	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 
-	extractHog(box);
+	iftFeatures *feat = extractHog(box);
 
 	iftWriteImageP2(box, "box.pgm");
 
 	iftDestroyImage(&img);
 	iftDestroyImage(&box);
+	iftDestroyFeatures(&feat);
 
 	return 0;
 

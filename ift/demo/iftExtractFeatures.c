@@ -76,8 +76,8 @@ int main(int argc, char *argv[])
         for (j = 0; j < num_candidates ; j++) {
             // Get bounding box
             bb_img = iftCreateBoundingBox2D(orig_img, cand_img, (j+1));
-            iftWriteImageP2(cand_img, "cand_img.pgm");
-            iftWriteImageP2(bb_img, "bb_img.pgm");
+            //iftWriteImageP2(cand_img, "cand_img.pgm");
+            //iftWriteImageP2(bb_img, "bb_img.pgm");
             // Extract BIC descriptor
 //            feat = iftExtractBIC(bb_img, descriptor_size/2);
             feat = extractHog(bb_img);
@@ -100,9 +100,9 @@ int main(int argc, char *argv[])
             iftDestroyFeatures(&feat);
         }
         // Free
-        //iftDestroyImage(&gt_img);
-        //iftDestroyImage(&cand_img);
-        //iftDestroyImage(&orig_img);
+        iftDestroyImage(&gt_img);
+        iftDestroyImage(&cand_img);
+        iftDestroyImage(&orig_img);
         free(overlap_count);
     }
     fclose(f);

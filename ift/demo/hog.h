@@ -252,6 +252,7 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 
 
 	}
+	iftDestroyAdjRel(&adj);
 
 }
 
@@ -318,6 +319,9 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
         
 		/** Find corresponding bins **/
 		// find first bin
+//		if (gradDir->val[p] > 360)
+//			printf("%d : %d\n", p, gradDir->val[p]);
+
 		bin1 = gradDir->val[p] / 45;
 
 		// find second bin
@@ -331,7 +335,9 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 		else
 			diff2 = 361;
 
-		bin1++;
+		if (bin1 < 8)
+			bin1++;
+
 		if (diff1 < diff2)
 			bin2 = bin1 + 1;
 		else
@@ -367,20 +373,32 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 		if (ww != 0) {
 
 			/** Now calculate weights **/
-			w[0] = ww * (fmax(x1, x2) - xp) / cellSzX;
-			w[1] = ww * (xp - fmin(x1, x2)) / cellSzX;
+			w[0] = ww * fabs(fmax(x1, x2) - xp) / cellSzX;
+			w[1] = ww * fabs(xp - fmin(x1, x2)) / cellSzX;
 			w[2] = w[0] * (cellSzY / 2) / cellSzY;
 			w[3] = w[0] * (cellSzY / 2) / cellSzY;
 			w[4] = w[1] * (cellSzY / 2) / cellSzY;
 			w[5] = w[1] * (cellSzY / 2) / cellSzY;
 			w[6] = w[2]; //* 45 / 45;
-			w[10] = (w[2] * 45) / (fmax(y1, y2) - center[bin1]);
+			w[10] = (w[2] * 45) / fabs(fmax(y1, y2) - center[bin1]);
 			w[7] = w[3];
 			w[11] = w[3];
 			w[9] = w[4];
 			w[13] = w[4];
 			w[8] = w[5];
 			w[12] = w[5];
+
+//			if (bin1 > 8)
+//				printf("problem bin1 %d\n", bin1);
+//			if (bin2 > 8)
+//				printf("problem bin2 %d\n", bin2);
+//
+//			for (int i = 0; i < 4; ++i) {
+//				if (nearestI[i] > 3)
+//					printf("problem near i %d\n", nearestI[i]);
+//				if (nearestJ[i] > 3)
+//					printf("problem near i %d\n", nearestJ[i]);
+//			}
 
 			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
 			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];
@@ -427,7 +445,7 @@ iftImage *normalize(iftImage *img) {
 
 		normImg->val[p] = ((img->val[p] / sqrt(sum))) * 255;
 	}
-
+	iftDestroyAdjRel(&adj);
 	return normImg;
 }
 
