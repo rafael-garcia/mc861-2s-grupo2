@@ -119,8 +119,8 @@ iftFeatures *extractHog(iftImage *window) {
 	}
 
 	/**Calculates window gradient magnitude and direction**/
-	iftWriteImageP2(window, "window.pgm");
-	gradient(window, &gradMag, &gradDir);
+	iftImage *norm = normalize(window);
+	gradient(norm, &gradMag, &gradDir);
 	/**Calculates histograms for each cell**/
 	calc_histograms(cells, nOfCells, nOfCells, cellXSize, cellYSize, gradMag,
 			gradDir);
@@ -165,20 +165,30 @@ iftFeatures *extractHog(iftImage *window) {
 	for (int i = 0; i < nOfBlocks; ++i) {
 		for (int j = 0; j < nOfBlocks; ++j) {
 			for (int c = 0; c < blocks[i][j].sz; ++c) {
-				hogFeatures->val[featIndex++] = blocks[i][j].val[c];
+				hogFeatures->val[featIndex] = blocks[i][j].val[c];
 			}
 		}
 	}
 
 	//TODO dealloc cells and blocks
+
+	for (int i = 0; i < nOfCells; ++i)
+		free(cells[i]);
+	free(cells);
+
+	for (int i = 0; i < nOfBlocks; ++i)
+		free(blocks[i]);
+	free(blocks);
+
+
 	iftDestroyImage(&gradMag);
 	iftDestroyImage(&gradDir);
+	iftDestroyImage(&norm);
 
 	return hogFeatures;
 }
 
 void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
-	iftImage* normImg = iftCreateImage(img->xsize, img->ysize, img->zsize);
 	iftVoxel v;
 	iftVoxel u;
 	float r = 5.0;
@@ -236,8 +246,6 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 		}
 
 	}
-	iftWriteImageP2(*magnitude, "gradMag.pgm");
-	iftWriteImageP2(*direction, "gradDir.pgm");
 
 }
 
@@ -369,10 +377,10 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 			w[8] = w[5];
 			w[12] = w[5];
 
-			for (int i = 0; i < 14; ++i)
-				if (w[i] > ww) {
-					printf("%.2f : %d -> %.2f : %.2f : %.2f : %.2f\n", w[i], i, w[2], fmax(y1, y2), gradDir->val[p], w[2]);
-				}
+//			for (int i = 0; i < 14; ++i)
+//				if (w[i] > ww) {
+//					printf("%.2f : %d -> %.2f : %.2f : %.2f : %.2f\n", w[i], i, w[2], fmax(y1, y2), gradDir->val[p], w[2]);
+//				}
 
 			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
 			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];
