@@ -48,7 +48,7 @@ void destroyBlock(Block *bl) {
  * Extract image features using HoG image descriptor.
  *
  * @param[in] img 	gray scale image.
- * @return			features structure containing characteristic vector.
+ * @return			features structure containing features vector.
  */
 iftFeatures *extractHog(iftImage *window);
 
@@ -81,12 +81,6 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 
 /**************************************************************
  **************************************************************/
-
-void normalizeBlockVector(Block *block, int normFactor) {
-
-	for (int i = 0; i < block->sz; ++i)
-		block->val[i] = block->val[i] / (sqrt(normFactor) + EPSLON);
-}
 
 iftFeatures *extractHog(iftImage *window) {
 	int nOfCells = 4;
@@ -125,41 +119,44 @@ iftFeatures *extractHog(iftImage *window) {
 	}
 
 	/**Calculates window gradient magnitude and direction**/
+	iftWriteImageP2(window, "window.pgm");
 	gradient(window, &gradMag, &gradDir);
 	/**Calculates histograms for each cell**/
-	calc_histograms(cells, nOfCells, nOfCells, cellXSize, cellYSize, gradMag, gradDir);
+	calc_histograms(cells, nOfCells, nOfCells, cellXSize, cellYSize, gradMag,
+			gradDir);
 
 	int valCounter;
 	int bi = 0;
 	int bj = 0;
 	float normFactor;
 	float vj;
-	/** Calculates characteristic vector for each block **/
-	for (int i = 0; i < nOfCells; i += blockSz) {
 
-		blocks[bi] = (Block *) malloc(nOfBlocks * sizeof(Block));
-
-		for (int j = 0; j < nOfCells; j += blockSz) {
-			blocks[bi][bj] = createBlock(blockSz * blockSz * 9);
-
+	/** Calculates features vector for each block **/
+	for (int i = 0; i < nOfBlocks; ++i) {
+		blocks[i] = (Block *) malloc(nOfBlocks * sizeof(Block));
+		for (int j = 0; j < nOfBlocks; ++j) {
+			blocks[i][j] = createBlock(blockSz * blockSz * 9);
 			valCounter = 0;
 			normFactor = 0;
 			/**Get each cell of a block**/
-			for (int ii = i; ii < blockSz; ++ii) {
-				for (int jj = j; jj < blockSz; ++jj) {
+			for (int y = i * blockSz; y < i * blockSz + blockSz; ++y) {
+				for (int x = j * blockSz; x < j * blockSz + blockSz; ++x) {
 					/** Get each bin value of a cell.**/
 					for (int b = 0; b < 9; ++b) {
-						vj = cells[ii][jj].histogram->val[b];
-//						printf("%.2f\n", vj);
-						blocks[bi][bj].val[valCounter++] = vj;
+						vj = cells[y][x].histogram->val[b];
+						blocks[i][j].val[valCounter++] = vj;
 						normFactor += (vj * vj);
+
 					}
 				}
+
 			}
-			normalizeBlockVector(&blocks[bi][bj], normFactor);
-			bj++;
+			/** Normalize **/
+			for (int m = 0; m < blocks[i][j].sz; ++m) {
+					blocks[i][j].val[m] = blocks[i][j].val[m] / (sqrt(normFactor) + EPSLON);
+			}
 		}
-		bi++;
+
 	}
 
 	iftFeatures *hogFeatures = iftCreateFeatures(nOfCells * nOfCells * 9);
@@ -169,7 +166,6 @@ iftFeatures *extractHog(iftImage *window) {
 		for (int j = 0; j < nOfBlocks; ++j) {
 			for (int c = 0; c < blocks[i][j].sz; ++c) {
 				hogFeatures->val[featIndex++] = blocks[i][j].val[c];
-				printf("%f\n", hogFeatures->val[featIndex++]);
 			}
 		}
 	}
@@ -218,11 +214,11 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 				q = iftGetVoxelIndex(img, u);
 
 				distance = sqrt(pow(v.x - u.x, 2.0) + pow(v.y - u.y, 2.0));
-				factor = img->val[p] * img->val[q]
+				factor = (img->val[p] - img->val[q])
 						* exp(-(pow(distance, 2.0) / (2 * pow(sigma, 2.0))));
 
-				xPart = (v.x - u.x) / distance;
-				yPart = (v.y - u.y) / distance;
+				xPart = (u.x - v.x) / distance;
+				yPart = (u.y - v.y) / distance;
 
 				gx += factor * xPart;
 				gy += factor * yPart;
@@ -240,6 +236,8 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 		}
 
 	}
+	iftWriteImageP2(*magnitude, "gradMag.pgm");
+	iftWriteImageP2(*direction, "gradDir.pgm");
 
 }
 
@@ -287,7 +285,7 @@ void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
 void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 		iftImage *gradMag, iftImage *gradDir) {
 	int nearestI[4], nearestJ[4];
-	int w[14];
+	float w[14];
 	int ww;
 	int center[] = { 22, 67, 112, 157, 202, 247, 292, 337 };
 	int bin1, bin2;
@@ -356,20 +354,25 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 		if (ww != 0) {
 
 			/** Now calculate weights **/
-			w[0] = ww * abs(x1 - xp) / cellSzX;
-			w[1] = ww * abs(xp - x1) / cellSzX;
+			w[0] = ww * (fmax(x1, x2) - xp) / cellSzX;
+			w[1] = ww * (xp - fmin(x1, x2)) / cellSzX;
 			w[2] = w[0] * (cellSzY / 2) / cellSzY;
 			w[3] = w[0] * (cellSzY / 2) / cellSzY;
 			w[4] = w[1] * (cellSzY / 2) / cellSzY;
 			w[5] = w[1] * (cellSzY / 2) / cellSzY;
 			w[6] = w[2]; //* 45 / 45;
-			w[10] = w[2] * 45 / (y1 - center[bin1 - 1]);
+			w[10] = (w[2] * 45) / (fmax(y1, y2) - center[bin1]);
 			w[7] = w[3];
 			w[11] = w[3];
 			w[9] = w[4];
 			w[13] = w[4];
 			w[8] = w[5];
 			w[12] = w[5];
+
+			for (int i = 0; i < 14; ++i)
+				if (w[i] > ww) {
+					printf("%.2f : %d -> %.2f : %.2f : %.2f : %.2f\n", w[i], i, w[2], fmax(y1, y2), gradDir->val[p], w[2]);
+				}
 
 			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
 			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];

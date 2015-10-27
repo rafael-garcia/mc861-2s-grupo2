@@ -79,7 +79,8 @@ int main(int argc, char *argv[])
             iftWriteImageP2(cand_img, "cand_img.pgm");
             iftWriteImageP2(bb_img, "bb_img.pgm");
             // Extract BIC descriptor
-            feat = iftExtractBIC(bb_img, descriptor_size/2);
+//            feat = iftExtractBIC(bb_img, descriptor_size/2);
+            feat = extractHog(bb_img);
             for (t = 0; t < feat->n ; t++) {
                 cand_dataset->sample[index_cand].feat[t] = feat->val[t];
             }

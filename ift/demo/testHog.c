@@ -15,8 +15,10 @@ int main(int argc, char *argv[]) {
 	}
 
 	iftImage *img = iftReadImageByExt(argv[1]);
+//	iftImage *label = iftReadImageByExt(
+//			"/home/hoshiro/Pictures/LicensePlates/cand/0001.pgm");
 	iftImage *label = iftReadImageByExt(
-			"/home/hoshiro/Pictures/LicensePlates/cand/0001.pgm");
+				"/tmp/placas/LicensePlates/cand/0001.pgm");
 
 	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 
