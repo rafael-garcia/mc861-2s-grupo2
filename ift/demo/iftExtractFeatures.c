@@ -100,9 +100,9 @@ int main(int argc, char *argv[])
             iftDestroyFeatures(&feat);
         }
         // Free
-        iftDestroyImage(&gt_img);
-        iftDestroyImage(&cand_img);
-        iftDestroyImage(&orig_img);
+        //iftDestroyImage(&gt_img);
+        //iftDestroyImage(&cand_img);
+        //iftDestroyImage(&orig_img);
         free(overlap_count);
     }
     fclose(f);

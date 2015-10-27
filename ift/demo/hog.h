@@ -165,12 +165,20 @@ iftFeatures *extractHog(iftImage *window) {
 
 	//TODO dealloc cells and blocks
 
-	for (int i = 0; i < nOfCells; ++i)
+	for (int i = 0; i < nOfCells; ++i) {
+        for (int j = 0; j < nOfCells; ++j) {
+            iftDestroyHistogram(&(cells[i][j].histogram));
+        }
 		free(cells[i]);
+    }
 	free(cells);
 
-	for (int i = 0; i < nOfBlocks; ++i)
+	for (int i = 0; i < nOfBlocks; ++i) {
+        for (int j = 0; j < nOfBlocks; ++j) {
+            free(blocks[i][j].val);
+        }
 		free(blocks[i]);
+    }
 	free(blocks);
 
 
@@ -232,11 +240,16 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 		g = sqrt(pow(gx, 2.0) + pow(gy, 2.0));
 		(*magnitude)->val[p] = g;
 
-		if (gy / g >= 0) {
-			(*direction)->val[p] = _const * acos(gx / g);
-		} else {
-			(*direction)->val[p] = 360 - _const * acos(gx / g);
-		}
+        if (g != 0) {
+            if (gy / g >= 0) {
+                (*direction)->val[p] = _const * acos(gx / g);
+            } else {
+                (*direction)->val[p] = 360 - _const * acos(gx / g);
+            }
+        }
+        else
+            (*direction)->val[p] = 0;
+
 
 	}
 
@@ -302,7 +315,7 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 	for (p = 0; p < gradMag->n; ++p) {
 		v = iftGetVoxelCoord(gradMag, p);
 		nearestCells(cells, row, col, v.x, v.y, nearestI, nearestJ);
-
+        
 		/** Find corresponding bins **/
 		// find first bin
 		bin1 = gradDir->val[p] / 45;
