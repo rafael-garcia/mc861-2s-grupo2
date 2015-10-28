@@ -5,7 +5,7 @@
 #ifndef IFT_IFTEXTRACTFEATURES_H
 #define IFT_IFTEXTRACTFEATURES_H
 
-#define DESCRIPTOR_SIZE 64
+#define DESCRIPTOR_SIZE 144
 
 iftImage *iftCreateBoundingBox2D(iftImage *img, iftImage *label, int val) {
     iftImage *out;

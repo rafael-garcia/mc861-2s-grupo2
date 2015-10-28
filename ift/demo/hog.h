@@ -76,34 +76,29 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction);
  * @param[out]	direction	gradient direction.
  * @return					array of int representing histograms
  */
-void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
-		iftImage *gradMag, iftImage *gradDir);
+void calc_histograms(Cell cells[][4], int row, int col, int cellSzX,
+		int cellSzY, iftImage *gradMag, iftImage *gradDir);
 
 /**************************************************************
  **************************************************************/
 
 iftFeatures *extractHog(iftImage *window) {
 	int nOfCells = 4;
-	Cell **cells = (Cell**) malloc(nOfCells * sizeof(Cell*));
+	Cell cells[nOfCells][nOfCells];
 	int cellXSize = window->xsize / nOfCells;
 	int cellYSize = window->ysize / nOfCells;
-
 	int nOfBlocks = 2;
 	int blockSz = nOfCells / nOfBlocks;
-	Block **blocks = (Block **) malloc(nOfBlocks * sizeof(Block*));
+	Block blocks[nOfBlocks][nOfBlocks];
 
-	iftImage *gradMag = iftCreateImage(window->xsize, window->ysize,
-			window->zsize);
-	iftImage *gradDir = iftCreateImage(window->xsize, window->ysize,
-			window->zsize);
+	iftImage *gradMag;
+	iftImage *gradDir;
 
 	int minY;
 	int minX;
 	/* Create cells */
 	for (int i = 0; i < nOfCells; ++i) {
 		minY = i * cellYSize;
-
-		cells[i] = (Cell *) malloc(nOfCells * sizeof(Cell));
 
 		for (int j = 0; j < nOfCells; ++j) {
 			minX = j * cellXSize;
@@ -126,7 +121,6 @@ iftFeatures *extractHog(iftImage *window) {
 
 	/** Calculates features vector for each block **/
 	for (int i = 0; i < nOfBlocks; ++i) {
-		blocks[i] = (Block *) malloc(nOfBlocks * sizeof(Block));
 		for (int j = 0; j < nOfBlocks; ++j) {
 			blocks[i][j] = createBlock(blockSz * blockSz * 9);
 			valCounter = 0;
@@ -146,7 +140,8 @@ iftFeatures *extractHog(iftImage *window) {
 			}
 			/** Normalize **/
 			for (int m = 0; m < blocks[i][j].sz; ++m) {
-					blocks[i][j].val[m] = blocks[i][j].val[m] / (sqrt(normFactor) + EPSLON);
+				blocks[i][j].val[m] = blocks[i][j].val[m]
+						/ (sqrt(normFactor) + EPSLON);
 			}
 		}
 
@@ -158,7 +153,7 @@ iftFeatures *extractHog(iftImage *window) {
 	for (int i = 0; i < nOfBlocks; ++i) {
 		for (int j = 0; j < nOfBlocks; ++j) {
 			for (int c = 0; c < blocks[i][j].sz; ++c) {
-				hogFeatures->val[featIndex] = blocks[i][j].val[c];
+				hogFeatures->val[featIndex++] = blocks[i][j].val[c];
 			}
 		}
 	}
@@ -166,21 +161,16 @@ iftFeatures *extractHog(iftImage *window) {
 	//TODO dealloc cells and blocks
 
 	for (int i = 0; i < nOfCells; ++i) {
-        for (int j = 0; j < nOfCells; ++j) {
-            iftDestroyHistogram(&(cells[i][j].histogram));
-        }
-		free(cells[i]);
-    }
-	free(cells);
+		for (int j = 0; j < nOfCells; ++j) {
+			iftDestroyHistogram(&(cells[i][j].histogram));
+		}
+	}
 
 	for (int i = 0; i < nOfBlocks; ++i) {
-        for (int j = 0; j < nOfBlocks; ++j) {
-            free(blocks[i][j].val);
-        }
-		free(blocks[i]);
-    }
-	free(blocks);
-
+		for (int j = 0; j < nOfBlocks; ++j) {
+			free(blocks[i][j].val);
+		}
+	}
 
 	iftDestroyImage(&gradMag);
 	iftDestroyImage(&gradDir);
@@ -240,16 +230,14 @@ void gradient(iftImage *img, iftImage **magnitude, iftImage **direction) {
 		g = sqrt(pow(gx, 2.0) + pow(gy, 2.0));
 		(*magnitude)->val[p] = g;
 
-        if (g != 0) {
-            if (gy / g >= 0) {
-                (*direction)->val[p] = _const * acos(gx / g);
-            } else {
-                (*direction)->val[p] = 360 - _const * acos(gx / g);
-            }
-        }
-        else
-            (*direction)->val[p] = 0;
-
+		if (g != 0) {
+			if (gy / g >= 0) {
+				(*direction)->val[p] = _const * acos(gx / g);
+			} else {
+				(*direction)->val[p] = 360 - _const * acos(gx / g);
+			}
+		} else
+			(*direction)->val[p] = 0;
 
 	}
 	iftDestroyAdjRel(&adj);
@@ -268,8 +256,8 @@ int cmp(const void *a, const void *b) {
 	return ad->val > bd->val;
 }
 
-void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
-		int *nearestJ) {
+void nearestCells(Cell cells[][4], int row, int col, int px, int py,
+		int *nearestI, int *nearestJ) {
 
 	Distance dist[row * col];
 	int aux = 0;
@@ -297,8 +285,8 @@ void nearestCells(Cell **cells, int row, int col, int px, int py, int *nearestI,
 
 }
 
-void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
-		iftImage *gradMag, iftImage *gradDir) {
+void calc_histograms(Cell cells[][4], int row, int col, int cellSzX,
+		int cellSzY, iftImage *gradMag, iftImage *gradDir) {
 	int nearestI[4], nearestJ[4];
 	float w[14];
 	int ww;
@@ -316,12 +304,11 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 	for (p = 0; p < gradMag->n; ++p) {
 		v = iftGetVoxelCoord(gradMag, p);
 		nearestCells(cells, row, col, v.x, v.y, nearestI, nearestJ);
-        
+
 		/** Find corresponding bins **/
 		// find first bin
 //		if (gradDir->val[p] > 360)
 //			printf("%d : %d\n", p, gradDir->val[p]);
-
 		bin1 = gradDir->val[p] / 45;
 
 		// find second bin
@@ -388,17 +375,17 @@ void calc_histograms(Cell **cells, int row, int col, int cellSzX, int cellSzY,
 			w[8] = w[5];
 			w[12] = w[5];
 
-//			if (bin1 > 8)
-//				printf("problem bin1 %d\n", bin1);
-//			if (bin2 > 8)
-//				printf("problem bin2 %d\n", bin2);
-//
-//			for (int i = 0; i < 4; ++i) {
-//				if (nearestI[i] > 3)
-//					printf("problem near i %d\n", nearestI[i]);
-//				if (nearestJ[i] > 3)
-//					printf("problem near i %d\n", nearestJ[i]);
-//			}
+			if (bin1 > 8 || bin1 < 0)
+				printf("problem bin1 %d\n", bin1);
+			if (bin2 > 8 || bin2 < 0)
+				printf("problem bin2 %d\n", bin2);
+
+			for (int i = 0; i < 4; ++i) {
+				if (nearestI[i] > 3)
+					printf("problem near i %d\n", nearestI[i]);
+				if (nearestJ[i] > 3)
+					printf("problem near i %d\n", nearestJ[i]);
+			}
 
 			cells[nearestI[0]][nearestJ[0]].histogram->val[bin1] += w[6];
 			cells[nearestI[1]][nearestJ[1]].histogram->val[bin1] += w[7];

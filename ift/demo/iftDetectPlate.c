@@ -1,6 +1,7 @@
 #include "ift.h"
 #include "iftExtractFeatures.h"
 #include "iftSelectCandidates.h"
+#include "hog.h"
 
 
 int main(int argc, char* argv []) {
@@ -43,7 +44,7 @@ int main(int argc, char* argv []) {
             // Get bounding box
             iftImage* bb_img = iftCreateBoundingBox2D(origImg, candImg, (j+1));
             // Extract BIC descriptor
-            iftFeatures* feat = iftExtractBIC(bb_img, DESCRIPTOR_SIZE/2);
+            iftFeatures* feat = extractHog(bb_img);
             for (int t = 0; t < feat->n ; t++) {
                 Zt->sample[j].feat[t] = feat->val[t];
                 Zt->sample[j].id = j+1;
