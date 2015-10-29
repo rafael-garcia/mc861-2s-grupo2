@@ -15,10 +15,21 @@ int main(int argc, char *argv[]) {
 	}
 
 	iftImage *img = iftReadImageByExt(argv[1]);
-//	iftImage *label = iftReadImageByExt(
-//			"/home/hoshiro/Pictures/LicensePlates/cand/0001.pgm");
+
+	iftImage *norm = normalize(img);
+	iftWriteImageP2(norm, "norm.pgm");
+	iftDestroyImage(&norm);
+
+	iftImage *gradMag;
+	iftImage *gradDir;
+	gradient(img, &gradMag, &gradDir);
+	iftWriteImageP2(gradMag, "grad-mag.pgm");
+	iftWriteImageP2(gradDir, "grad-dir.pgm");
+	iftDestroyImage(&gradMag);
+	iftDestroyImage(&gradDir);
+
 	iftImage *label = iftReadImageByExt(
-				"/tmp/placas/LicensePlates/cand/0001.pgm");
+			"/tmp/placas/LicensePlates/cand/0001.pgm");
 
 	iftImage *box = iftCreateBoundingBox2D(img, label, 1);
 

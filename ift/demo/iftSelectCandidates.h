@@ -2,6 +2,8 @@
 // Created by Alan Peixinho on 8/31/15.
 //
 
+#include "selectUtils.h"
+
 #ifndef IFT_IFTSELECTCANDIDATES_H
 #define IFT_IFTSELECTCANDIDATES_H
 
@@ -70,6 +72,7 @@ iftImage *selectCandidates(iftImage *orig) {
     aux[3] = iftFastLabelComp(aux[2], A);
 
     iftRemoveSmallComponents(aux[3], MIN_VOLUME);
+    removeNonRectangular(aux[3]);
 
     iftImage* final = iftAddRectangularBoxFrame(aux[3], 4, 0, 0, 0);
 
