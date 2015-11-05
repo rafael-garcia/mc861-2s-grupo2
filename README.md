@@ -1,5 +1,9 @@
-To execute this project. Do the same as the original pipeline.
+To build this project. Do the same as the original pipeline.
+Go to /demo then:
 make ift_something
+Then to execute
+
 bin/iftSomething
 
-all alteration made will be in the existing code
+All alteration made will be in the existing code. They are concetrated in hog.h and iftSelectCandidates.h.
+
