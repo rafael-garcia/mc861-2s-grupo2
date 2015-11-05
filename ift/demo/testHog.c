@@ -23,6 +23,40 @@ int main(int argc, char *argv[]) {
 	iftImage *gradMag;
 	iftImage *gradDir;
 	gradient(img, &gradMag, &gradDir);
+
+	FILE *f = fopen("gradDir-escala-correta.pgm", "w");
+	FILE *g = fopen("gradMag-escala-correta.pgm", "w");
+	if (f == NULL || g == NULL) {
+	    printf("Error opening file!\n");
+	    exit(1);
+	}
+
+	int max = iftMaximumValue(gradDir);
+	fprintf(f, "P2\n%d %d\n%d\n", gradDir->xsize, gradDir->ysize, max);
+	int i = 0;
+	for (int j = 0; j < gradDir->xsize && i < gradDir->n; j++) {
+		for (int k = 0; k < gradDir->ysize && i < gradDir->n; k++) {
+			fprintf(f, "%d ", gradDir->val[i]);
+			i++;
+		}
+		fprintf(f, "\n");
+	}
+
+	max = iftMaximumValue(gradMag);
+	fprintf(g, "P2\n%d %d\n%d\n", gradMag->xsize, gradMag->ysize, max);
+	i = 0;
+	for (int j = 0; j < gradMag->xsize && i < gradMag->n; j++) {
+		for (int k = 0; k < gradMag->ysize && i < gradMag->n; k++) {
+			fprintf(g, "%d ", gradMag->val[i]);
+			i++;
+		}
+		fprintf(g, "\n");
+	}
+//		fprintf(f, "gradDir[n] = %d, Cb = %d, Cr = %d onde n = %d \n", gradDir->val[i], gradDir->Cb[i], gradDir->Cr[i], i);
+//		fprintf(f, "gradDir[n] = %d, onde n = %d \n", gradDir->val[i], i);
+
+	fclose(f);
+
 	iftWriteImageP2(gradMag, "grad-mag.pgm");
 	iftWriteImageP2(gradDir, "grad-dir.pgm");
 	iftDestroyImage(&gradMag);
